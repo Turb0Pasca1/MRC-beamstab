@@ -1,6 +1,7 @@
 # protocol/protocol.py
 
 from .defs import *
+import struct
 
 class ProtocolDecoder:
     # communication protocol information
