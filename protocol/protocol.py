@@ -129,7 +129,7 @@ class ProtocolDecoder:
 
         raw_reply = self.receive(1024)
         
-        time.sleep(4)
+        time.sleep(20)
 
         self.send_command('CLS')
 
