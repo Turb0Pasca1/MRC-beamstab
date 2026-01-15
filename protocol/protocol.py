@@ -15,7 +15,7 @@ class ProtocolDecoder:
     def __init__(self, connection):
         self.connection = connection
 
-    def send_command(self, command: str, params: bytes | None):
+    def send_command(self, command: str, params=None):
         if params is None:
             params = b''
         if not isinstance(command, str):
