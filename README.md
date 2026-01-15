@@ -12,6 +12,7 @@ The communication protocol is based on version [JH - 24.05.2023](https://www.mrc
 
 ## ToDo
 
+- implement continues receiving commands
 - wait for returns after sending commands
 - combine sending and decoding commands
   - adjusthow the command acknowledgement '0;' to feedback whether the command was acknowledged (might solve 'S1S;' return length problem)
