@@ -33,7 +33,7 @@ class ProtocolDecoder:
         return self.connection.read(size)
         
     # helper functions
-    def get_formatter_str(self, fields)
+    def get_formatter_str(self, fields):
         # build struct format string
         # high byte first
         fmt = '>'  
