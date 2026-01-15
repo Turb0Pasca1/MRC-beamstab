@@ -21,6 +21,18 @@ class ProtocolDecoder:
     def receive(self, size: int) -> bytes:
         return self.connection.read(size)
         
+    # helper functions
+    def get_formatter_str(self, fields)
+        # build struct format string
+        # high byte first
+        fmt = '>'  
+        for field in fields:
+            if field not in self.return_value_struct_map:
+                raise ValueError(f'Field {field} not in return_value_struct_map')
+            fmt += self.return_value_struct_map[field]
+        return fmt
+
+    # decode response of a sent command    
     def decode_response(self, reply, command):
         '''
         decode_response()
@@ -34,12 +46,7 @@ class ProtocolDecoder:
     
         fields = self.command_response_map[command]
     
-        # build struct format string
-        fmt = '>'
-        for field in fields:
-            if field not in self.return_value_struct_map:
-                raise ValueError(f'Field {field} not in return_value_struct_map')
-            fmt += self.return_value_struct_map[field]
+        fmt = self.get_formatter_str(fields)
 
         # check reply length with expected length
         if struct.calcsize(fmt) != len(reply):
@@ -82,3 +89,10 @@ class ProtocolDecoder:
                 continue
     
         return result
+    
+    def get_position(self):
+        self.send_command(b'S1S;')
+        fields = self.command_response_map['S1S;']
+        length = 
+        raw_reply = receive(length)
+        decoded = decoder.decode_response(raw_reply, 'S1S;')

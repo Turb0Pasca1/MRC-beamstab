@@ -66,7 +66,7 @@ COMMAND_RESPONSE_MAP = {
         'Adj1',         # stage1 adjust function set for software (1) or external signal (0)
         'PF'            # p-factor function is set for software (1) or external signal (0)
     ],
-    'S1S;': [
+    'S1S': [
         'fe',           # error acknowledge: no error (0), error (1)
         'semi_fe',      # semicolon (ascii value 59 (0x3b))
         'StatusFlag', 
@@ -77,7 +77,7 @@ COMMAND_RESPONSE_MAP = {
         'RX2', 'RY2',              
         'semi_end'      # semicolon (ascii value 59 (0x3b))
     ],
-    'SLSmr;': [
+    'SLSmr': [
         'fe',           # error acknowledge: no error (0), error (1)
         'semi_fe',      # semicolon (ascii value 59 (0x3b))
         'StatusFlag', 
@@ -88,7 +88,7 @@ COMMAND_RESPONSE_MAP = {
         'RX2', 'RY2',              
         'semi_end'      # semicolon (ascii value 59 (0x3b))
     ],
-    'SPSm;': [
+    'SPSm': [
         'fe',           # error acknowledge: no error (0), error (1)
         'semi_fe',      # semicolon (ascii value 59 (0x3b))
         'StatusFlag', 
@@ -99,120 +99,120 @@ COMMAND_RESPONSE_MAP = {
         'RX2', 'RY2',              
         'semi_end'      # semicolon (ascii value 59 (0x3b))
     ],
-    'CLS;': [
+    'CLS': [
         'fe',           # error acknowledge: no error (0), error (1)
         'semi_fe'       # semicolon (ascii value 59 (0x3b))
     ],
-    'SSHs;': [
+    'SSHs': [
         'fe',           # error acknowledge: no error (0), error (1)
         'semi_fe'       # semicolon (ascii value 59 (0x3b))
     ],
-    'CSHs;': [
+    'CSHs': [
         'fe',           # error acknowledge: no error (0), error (1)
         'semi_fe'       # semicolon (ascii value 59 (0x3b))
     ],
-    'SPFsp;': [
+    'SPFsp': [
         'fe',           # error acknowledge: no error (0), error (1)
         'semi_fe',      # semicolon (ascii value 59 (0x3b))
     ],
-    'GPFs;': [
+    'GPFs': [
         'fe',           # error acknowledge: no error (0), error (1)
         'semi_fe',      # semicolon (ascii value 59 (0x3b))
         'p',
         'semi_end'      # semicolon (ascii value 59 (0x3b))
     ],
-    'SAIsao;': [
+    'SAIsao': [
         'fe',           # error acknowledge: no error (0), error (1)
         'semi_fe',      # semicolon (ascii value 59 (0x3b))
     ],
-    'GAIsa;': [
+    'GAIsa': [
         'fe',           # error acknowledge: no error (0), error (1)
         'semi_fe',      # semicolon (ascii value 59 (0x3b))
         'o',
         'semi_end'      # semicolon (ascii value 59 (0x3b))
     ],
-    'GPFs;': [
+    'GPFs': [
         'fe',           # error acknowledge: no error (0), error (1)
         'semi_fe'       # semicolon (ascii value 59 (0x3b))
     ],
-    'SDAsad;': [
+    'SDAsad': [
         'fe',           # error acknowledge: no error (0), error (1)
         'semi_fe'       # semicolon (ascii value 59 (0x3b))
     ],
-    'GDA;': [
+    'GDA': [
         'fe',           # error acknowledge: no error (0), error (1)
         'semi_fe',      # semicolon (ascii value 59 (0x3b))
         'dx1', 'dy1', 
         'dx2', 'dy2',
         'semi_end'      # semicolon (ascii value 59 (0x3b))
     ],
-    'SDSsi;': [
+    'SDSsi': [
         'fe',           # error acknowledge: no error (0), error (1)
         'semi_fe'       # semicolon (ascii value 59 (0x3b))
     ],
-    'GDSs;': [
+    'GDSs': [
         'fe',           # error acknowledge: no error (0), error (1)
         'semi_fe',      # semicolon (ascii value 59 (0x3b))
         'i'
     ],
-    'SEAs;': [
+    'SEAs': [
         'fe',           # error acknowledge: no error (0), error (1)
         'semi_fe'       # semicolon (ascii value 59 (0x3b))
     ],
-    'CEAs;': [
+    'CEAs': [
         'fe',           # error acknowledge: no error (0), error (1)
         'semi_fe'       # semicolon (ascii value 59 (0x3b))
     ],
-    'GEA;': [
+    'GEA': [
         'fe',           # error acknowledge: no error (0), error (1)
         'semi_fe',      # semicolon (ascii value 59 (0x3b))
         'OnOff1',
         'OnOff2',
         'semi_end'      # semicolon (ascii value 59 (0x3b))
     ],
-    'STFs;': [
+    'STFs': [
         'fe',           # error acknowledge: no error (0), error (1)
         'semi_fe'       # semicolon (ascii value 59 (0x3b))
     ],
-    'CTFs;': [
+    'CTFs': [
         'fe',           # error acknowledge: no error (0), error (1)
         'semi_fe'       # semicolon (ascii value 59 (0x3b))
     ],
-    'SHS;': [
+    'SHS': [
         'fe',           # error acknowledge: no error (0), error (1)
         'semi_fe'       # semicolon (ascii value 59 (0x3b))
     ],
-    'CHS;': [
+    'CHS': [
         'fe',           # error acknowledge: no error (0), error (1)
         'semi_fe'       # semicolon (ascii value 59 (0x3b))
     ],
-    'SBRb;': [
+    'SBRb': [
         'fe',           # error acknowledge: no error (0), error (1)
         'semi_fe'       # semicolon (ascii value 59 (0x3b))
     ],
-    'GSF;': [
+    'GSF': [
         'fe',           # error acknowledge: no error (0), error (1)
         'semi_fe',      # semicolon (ascii value 59 (0x3b))
         'StatusFlag',
         'semi_end'      # semicolon (ascii value 59 (0x3b))
     ],
-    'GID;': [
+    'GID': [
         'fe',           # error acknowledge: no error (0), error (1)
         'semi_fe',      # semicolon (ascii value 59 (0x3b))
         'Device_id',
         'semi_end'      # semicolon (ascii value 59 (0x3b))
     ],
-    'SLAI;': [
+    'SLAI': [
         'fe',           # error acknowledge: no error (0), error (1)
         'semi_fe'       # semicolon (ascii value 59 (0x3b))
     ],
-    'GLA;': [
+    'GLA': [
         'fe',           # error acknowledge: no error (0), error (1)
         'semi_fe',      # semicolon (ascii value 59 (0x3b))
         'l',
         'semi_end'      # semicolon (ascii value 59 (0x3b))
     ],
-    'GER;': [
+    'GER': [
         'fe',           # error acknowledge: no error (0), error (1)
         'semi_fe',      # semicolon (ascii value 59 (0x3b))
         'CMD',
