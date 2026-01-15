@@ -2,6 +2,7 @@
 
 from .defs import *
 import struct
+import time
 
 class ProtocolDecoder:
     # communication protocol information
@@ -33,14 +34,16 @@ class ProtocolDecoder:
         return self.connection.read(size)
         
     # helper functions
-    def get_formatter_str(self, fields):
+    def get_formatter_str(self, fields, map=None):
         # build struct format string
+        if map is None:
+            map = self.return_value_struct_map
         # high byte first
         fmt = '>'  
         for field in fields:
-            if field not in self.return_value_struct_map:
+            if field not in map:
                 raise ValueError(f'Field {field} not in return_value_struct_map')
-            fmt += self.return_value_struct_map[field]
+            fmt += map[field]
         return fmt
 
     # decode response of a sent command    
@@ -109,4 +112,26 @@ class ProtocolDecoder:
         length = struct.calcsize(fmt)
         raw_reply = self.receive(length)
         return self.decode_response(raw_reply, command)
+    
+    def get_position_continues(self, r):
+        '''
+        m: number of transmitted data measurement blocks
+           0: continues measurement
+           1 <= m <= 65500
+        r: time interval 
+           1 <= r <= 500 samples/s
+        '''
+        command = 'SLSmr'
+        fields = ['m', 'r']
+        fmt = self.get_formatter_str(fields, map=self.command_parameter_struct_map)
+        params = struct.pack(fmt, 0, r)
+        self.send_command('SLS', params)
 
+        raw_reply = self.receive(1024)
+        
+        time.sleep(4)
+
+        self.send_command('CLS')
+
+        return raw_reply
+        #return self.decode_response(raw_reply, command)
