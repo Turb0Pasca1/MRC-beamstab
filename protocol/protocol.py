@@ -15,8 +15,19 @@ class ProtocolDecoder:
     def __init__(self, connection):
         self.connection = connection
 
-    def send_command(self, cmd: bytes):
-        self.connection.write(cmd)
+    def send_command(self, command: str, params: bytes | None):
+        if params is None:
+            params = b''
+        if not isinstance(command, str):
+            raise TypeError('command must be str')
+        if not isinstance(params, (bytes, bytearray)):
+            raise TypeError('params must be bytes')
+        frame = (
+            command.encode('ascii') +
+            params +
+            b';'
+        )
+        self.connection.write(frame)
 
     def receive(self, size: int) -> bytes:
         return self.connection.read(size)
@@ -91,8 +102,11 @@ class ProtocolDecoder:
         return result
     
     def get_position(self):
-        self.send_command(b'S1S;')
-        fields = self.command_response_map['S1S;']
-        length = 
-        raw_reply = receive(length)
-        decoded = decoder.decode_response(raw_reply, 'S1S;')
+        command = 'S1S'
+        self.send_command(command)
+        fields = self.command_response_map[command]
+        fmt = self.get_formatter_str(fields)
+        length = struct.calcsize(fmt)
+        raw_reply = self.receive(length)
+        return self.decode_response(raw_reply, command)
+
