@@ -10,6 +10,7 @@ class TCPConnection(BaseConnection):
         self.sock = None
 
     def open(self):
+        # socket.create_connection() is a wrapper of socket.connect() 
         self.sock = socket.create_connection(
             (self.host, self.port),
             timeout=self.timeout

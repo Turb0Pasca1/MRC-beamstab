@@ -17,22 +17,47 @@ class ProtocolDecoder:
         self.connection = connection
 
     def send_command(self, command: str, params=None):
+        '''
+        Docstring for send_command
+
+        sends command to the device
+        command: string of command to send
+        params:  parameter to send with the command
+        '''
         if params is None:
             params = b''
         if not isinstance(command, str):
-            raise TypeError('command must be str')
+            raise TypeError('Command must be of dtype str')
         if not isinstance(params, (bytes, bytearray)):
-            raise TypeError('params must be bytes')
-        frame = (
+            raise TypeError('Params must be of dtype bytes')
+        block = (
             command.encode('ascii') +
             params +
             b';'
         )
-        self.connection.write(frame)
+        self.connection.write(block)
 
     def receive(self, size: int) -> bytes:
-        return self.connection.read(size)
+        '''
+        Docstring for receive
         
+        receives data of size size
+        '''
+        return self.connection.read(size)
+    
+    def receive_continuesly(self) -> bytes:
+        '''
+        Docstring for receive_continuesly
+        
+        calls receive in a loop to receive data of livestreams
+        '''
+        while True:
+            # receive arbitary amount (1024) of bytes in each chunk
+            chunk = self.receive(1014)
+            if not chunk:
+                raise ConnectionError('Server closed the connection')
+            yield chunk
+ 
     # helper functions
     def get_formatter_str(self, fields, map=None):
         '''
@@ -139,11 +164,13 @@ class ProtocolDecoder:
         params = struct.pack(fmt, 0, r)
         self.send_command('SLS', params)
 
-        raw_reply = self.receive(1024)
-        
-        time.sleep(20)
+        start_time = time.time()
+        duration = 20  # seconds
 
-        self.send_command('CLS')
+        for chunk in self.receive_continuesly():
+            print(chunk)
 
-        return raw_reply
-        #return self.decode_response(raw_reply, command)
+            # stop after 20 seconds
+            if time.time() - start_time >= duration:
+                self.send_command('CLS')
+                break
