@@ -82,7 +82,7 @@ class ProtocolDecoder:
         self.acknowledge(response)
     
         # handle special cases of keys
-        for key, val in result.items():
+        for key, val in response.items():
             # StatusFlag: convert to bit dictionary
             if key == 'StatusFlag':
                 bits = format(val, '08b')
@@ -115,7 +115,7 @@ class ProtocolDecoder:
     
         return response
     
-    def get_position(self):
+    def get_S1S(self):
         command = 'S1S'
         self.send_command(command)
         fields = self.command_response_map[command]
@@ -123,8 +123,9 @@ class ProtocolDecoder:
         length = struct.calcsize(fmt)
         raw_reply = self.receive(length)
         return self.decode_response(raw_reply, command)
+        return 
     
-    def get_position_continues(self, r):
+    def get_SLS(self, r):
         '''
         m: number of transmitted data measurement blocks
            0: continues measurement
