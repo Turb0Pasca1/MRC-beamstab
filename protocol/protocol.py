@@ -35,7 +35,9 @@ class ProtocolDecoder:
         
     # helper functions
     def get_formatter_str(self, fields, map=None):
-        # build struct format string
+        '''
+        builder for struct formatter string to pack and unpack bytes
+        '''
         if map is None:
             map = self.return_value_struct_map
         # high byte first
@@ -45,6 +47,13 @@ class ProtocolDecoder:
                 raise ValueError(f'Field {field} not in return_value_struct_map')
             fmt += map[field]
         return fmt
+    
+    def acknowledge(self, response):
+        '''
+        interpret first two bytes of response (0;) as acknowledged message
+        '''
+        if (response['fe'] != 0) & (response['semi_fe'] != 59):
+            raise ValueError('Command has not been acknowledged')
 
     # decode response of a sent command    
     def decode_response(self, reply, command):
@@ -68,22 +77,24 @@ class ProtocolDecoder:
           
         # unpack
         unpacked = struct.unpack(fmt, reply)
-        result = dict(zip(fields, unpacked))
+        response = dict(zip(fields, unpacked))
+
+        self.acknowledge(response)
     
         # handle special cases of keys
         for key, val in result.items():
             # StatusFlag: convert to bit dictionary
             if key == 'StatusFlag':
                 bits = format(val, '08b')
-                result['StatusFlag'] = dict(zip(self.command_response_map.get('StatusFlag', []), bits))
+                response['StatusFlag'] = dict(zip(self.command_response_map.get('StatusFlag', []), bits))
                 continue
     
             # decode fields received as ascii
             if key in self.ascii_keys:
                 if isinstance(val, (bytes, bytearray)):
-                    result[key] = val.rstrip(b'\x00').decode('ascii')
+                    response[key] = val.rstrip(b'\x00').decode('ascii')
                 elif isinstance(val, int) and 0 <= val <= 127:
-                    result[key] = chr(val)
+                    response[key] = chr(val)
                 continue
     
             # map error code
@@ -95,14 +106,14 @@ class ProtocolDecoder:
                 error_name = self.error_code_map.get(code, f'UnknownError_0x{code:02X}')
                 error_description = self.error_description_map.get(code, 'No description available.')
     
-                result['e'] = {
+                response['e'] = {
                     'ErrorCode': f'0x{code:02X}',
                     'ErrorName': error_name,
                     'ErrorDescription': error_description
                 }
                 continue
     
-        return result
+        return response
     
     def get_position(self):
         command = 'S1S'

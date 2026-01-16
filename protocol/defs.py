@@ -153,7 +153,8 @@ COMMAND_RESPONSE_MAP = {
     'GDSs': [
         'fe',           # error acknowledge: no error (0), error (1)
         'semi_fe',      # semicolon (ascii value 59 (0x3b))
-        'i'
+        'i',
+        'semi_end'      # semicolon (ascii value 59 (0x3b))
     ],
     'SEAs': [
         'fe',           # error acknowledge: no error (0), error (1)
