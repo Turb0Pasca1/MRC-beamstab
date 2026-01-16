@@ -58,10 +58,15 @@ class ProtocolDecoder:
                 raise ConnectionError('Server closed the connection')
             yield chunk
  
-    # helper functions
+    ##### helper functions #####
+
     def get_formatter_str(self, fields, map=None):
         '''
+        Docstring for get_fromatter_str
+
         builder for struct formatter string to pack and unpack bytes
+        fields: fields of defs.py containing the dytpe information of parameters to send and attributes to receive
+        map:    dict to map the fields onto
         '''
         if map is None:
             map = self.return_value_struct_map
@@ -73,19 +78,27 @@ class ProtocolDecoder:
             fmt += map[field]
         return fmt
     
-    def acknowledge(self, response):
+    def acknowledge(self, response: dict):
         '''
+        Docstring for acknowledge
+        ToDo: change to find '0;' in encoded message to choose whether to decode or not
+
         interpret first two bytes of response (0;) as acknowledged message
+        response: dict containing the decoded response of the controller
         '''
-        if (response['fe'] != 0) & (response['semi_fe'] != 59):
-            raise ValueError('Command has not been acknowledged')
+        if (response['fe'] == 0) & (response['semi_fe'] == 59):
+            return True
+        else:
+            return False
 
     # decode response of a sent command    
-    def decode_response(self, reply, command):
+    def decode_response(self, reply: bytes, command: str):
         '''
-        decode_response()
-        - decodes command response
+        Docstring of decode_response
 
+        decodes command response corresponding to COMMAND_RESPONSE_MAP
+        reply: reply message of a send command by the controller
+        command: command string that caused the return
         return dict of command return keys and values
         '''
         # check command validity
@@ -97,6 +110,7 @@ class ProtocolDecoder:
         fmt = self.get_formatter_str(fields)
 
         # check reply length with expected length
+        # add to re-send the command
         if struct.calcsize(fmt) != len(reply):
             raise ValueError(f'Length of reply {len(reply)} byte does not match length of expected "{command}" length of {struct.calcsize(fmt)} byte.')
           
