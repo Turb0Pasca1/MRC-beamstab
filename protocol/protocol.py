@@ -21,8 +21,8 @@ class ProtocolDecoder:
         Docstring for send_command
 
         sends command to the device
-        command: string of command to send
-        params:  parameter to send with the command
+        command: command to send of dytpe str
+        params: parameter to send with the command of dytpe byte
         '''
         if params is None:
             params = b''
@@ -78,7 +78,7 @@ class ProtocolDecoder:
             fmt += map[field]
         return fmt
     
-    def acknowledge(self, response: dict):
+    def acknowledge(self, reply):
         '''
         Docstring for acknowledge
         ToDo: change to find '0;' in encoded message to choose whether to decode or not
@@ -86,10 +86,20 @@ class ProtocolDecoder:
         interpret first two bytes of response (0;) as acknowledged message
         response: dict containing the decoded response of the controller
         '''
-        if (response['fe'] == 0) & (response['semi_fe'] == 59):
+        # if (response['fe'] == 0) & (response['semi_fe'] == 59):
+        #     return True
+        # else:
+        #     return False
+
+        if b'\x00;' in reply:
+            print('Command acknowledged')
             return True
-        else:
+        elif b'\x01;' in reply:
+            print('Error occurred')
+            # add automatic send command to get error message
             return False
+        else:
+            raise ValueError('Command has not been acknowledged')
 
     # decode response of a sent command    
     def decode_response(self, reply: bytes, command: str):
@@ -117,8 +127,6 @@ class ProtocolDecoder:
         # unpack
         unpacked = struct.unpack(fmt, reply)
         response = dict(zip(fields, unpacked))
-
-        self.acknowledge(response)
     
         # handle special cases of keys
         for key, val in response.items():
@@ -161,8 +169,8 @@ class ProtocolDecoder:
         fmt = self.get_formatter_str(fields)
         length = struct.calcsize(fmt)
         raw_reply = self.receive(length)
-        return self.decode_response(raw_reply, command)
-        return 
+        if self.acknowledge(raw_reply):
+            return self.decode_response(raw_reply, command) 
     
     def get_SLS(self, r):
         '''
