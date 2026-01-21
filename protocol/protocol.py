@@ -109,10 +109,10 @@ class ProtocolDecoder:
         reply: raw response of the controller
         '''
 
-        if reply[-1] == b';':
+        if reply[-1] == 59:
             return True
-        elif reply[-1] != b';':
-            raise ValueError('Response is irregular')
+        else:
+            raise ValueError('Response did not end on ;')
 
 
     # decode response of a sent command    
