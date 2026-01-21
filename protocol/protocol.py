@@ -57,6 +57,38 @@ class ProtocolDecoder:
             if not chunk:
                 raise ConnectionError('Server closed the connection')
             yield chunk
+
+    def message_stream(self, recv_size=4096):
+        buffer = bytearray()
+
+        while True:
+            chunk = self.receive(recv_size)
+            if not chunk:
+                break  # connection closed
+
+            buffer.extend(chunk)
+
+            while True:
+                # find first ';'
+                start = buffer.find(b'\x00;')
+                if start == -1:
+                    # no start delimiter yet
+                    break
+
+                # find second ';' AFTER the first
+                end = buffer.find(b';', start + 1)
+                if end == -1:
+                    # incomplete message
+                    break
+
+                # extract full message INCLUDING delimiters
+                message = bytes(buffer[start:end + 1])
+
+                # remove processed bytes from buffer
+                del buffer[:end + 1]
+
+                yield message
+
  
     ##### helper functions #####
 
@@ -204,10 +236,11 @@ class ProtocolDecoder:
         duration = 5  
 
         total = []
-        for chunk in self.receive_continuesly():
+        for chunk in self.message_stream():
             print(chunk)
             total.append(chunk)
             # stop after 20 seconds for continuesly measurement for now
             if (time.time() - start_time >= duration):
                 self.send_command('CLS') # change for function to check whether CLS was successful
                 break
+        return chunk
