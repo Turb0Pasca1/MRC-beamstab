@@ -76,7 +76,7 @@ class ProtocolDecoder:
                     break
 
                 # find second ';' AFTER the first
-                end = buffer.find(b';', start + 1)
+                end = buffer.find(b';', start + 3)
                 if end == -1:
                     # incomplete message
                     break
