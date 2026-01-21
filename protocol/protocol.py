@@ -44,44 +44,32 @@ class ProtocolDecoder:
         receives data of size size
         '''
         return self.connection.read(size)
-    
-    def receive_continuesly(self) -> bytes:
-        '''
-        Docstring for receive_continuesly
-        
-        calls receive in a loop to receive data of livestreams
-        '''
-        while True:
-            # receive arbitary amount (1024) of bytes in each chunk
-            chunk = self.receive(1024)
-            if not chunk:
-                raise ConnectionError('Server closed the connection')
-            yield chunk
 
-    def message_stream(self, recv_size=4096):
+    def message_stream(self, size=25) -> bytes:
         buffer = bytearray()
 
         while True:
-            chunk = self.receive(recv_size)
+            chunk = self.receive(size)
             if not chunk:
-                break  # connection closed
+                raise ConnectionError('Server closed the connection')
 
             buffer.extend(chunk)
 
             while True:
-                # find first ';'
+                
+                # find message start marker
                 start = buffer.find(b'\x00;')
                 if start == -1:
-                    # no start delimiter yet
-                    break
-
-                # find second ';' AFTER the first
+                    start = buffer.find(b'\x01;')
+                    if start == -1:
+                        raise ValueError('No response start marker found')
+                
+                # find message end marker
                 end = buffer.find(b';', start + 3)
                 if end == -1:
-                    # incomplete message
-                    break
+                    raise ValueError('Incomplete response')
 
-                # extract full message INCLUDING delimiters
+                # extract full message
                 message = bytes(buffer[start:end + 1])
 
                 # remove processed bytes from buffer
@@ -235,13 +223,14 @@ class ProtocolDecoder:
         start_time = time.time()
         duration = 5  
 
-        total = []
-        for chunk in self.message_stream():
-            print(chunk)
-            if (self.acknowledge(chunk)) and (self.reply_end(chunk)):
-                print(self.decode_response(chunk, command))
+        n = 0
+        for message in self.message_stream():
+            if (self.acknowledge(message)) and (self.reply_end(message)):
+                return self.decode_response(message, command)
+            n += 1
+            if n == m:
+                break
             # stop after 20 seconds for continuesly measurement for now
             if (time.time() - start_time >= duration):
                 self.send_command('CLS') # change for function to check whether CLS was successful
                 break
-        return chunk
