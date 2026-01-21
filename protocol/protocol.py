@@ -78,13 +78,13 @@ class ProtocolDecoder:
             fmt += map[field]
         return fmt
     
-    def acknowledge(self, reply):
+    def acknowledge(self, reply: bytes):
         '''
         Docstring for acknowledge
         ToDo: change to find '0;' in encoded message to choose whether to decode or not
 
         interpret first two bytes of response (0;) as acknowledged message
-        response: dict containing the decoded response of the controller
+        reply: raw response of the controller
         '''
         # if (response['fe'] == 0) & (response['semi_fe'] == 59):
         #     return True
@@ -100,6 +100,20 @@ class ProtocolDecoder:
             return False
         else:
             raise ValueError('Command has not been acknowledged')
+        
+    def reply_end(self, reply: bytes):
+        '''
+        Docstring for reply_end
+        
+        check whether the resonse message ended correctly
+        reply: raw response of the controller
+        '''
+
+        if reply[-1] == b';':
+            return True
+        elif reply[-1] != b';':
+            raise ValueError('Response is irregular')
+
 
     # decode response of a sent command    
     def decode_response(self, reply: bytes, command: str):
@@ -169,10 +183,10 @@ class ProtocolDecoder:
         fmt = self.get_formatter_str(fields)
         length = struct.calcsize(fmt)
         raw_reply = self.receive(length)
-        if self.acknowledge(raw_reply):
+        if (self.acknowledge(raw_reply)) and (self.reply_end(raw_reply)):
             return self.decode_response(raw_reply, command) 
     
-    def get_SLS(self, r):
+    def get_SLS(self, m, r):
         '''
         m: number of transmitted data measurement blocks
            0: continues measurement
@@ -183,16 +197,16 @@ class ProtocolDecoder:
         command = 'SLSmr'
         fields = ['m', 'r']
         fmt = self.get_formatter_str(fields, map=self.command_parameter_struct_map)
-        params = struct.pack(fmt, 0, r)
+        params = struct.pack(fmt, m, r)
         self.send_command('SLS', params)
 
         start_time = time.time()
-        duration = 20  # seconds
+        duration = 20  
 
         for chunk in self.receive_continuesly():
             print(chunk)
 
-            # stop after 20 seconds
-            if time.time() - start_time >= duration:
-                self.send_command('CLS')
+            # stop after 20 seconds for continuesly measurement for now
+            if (m == 0) and (time.time() - start_time >= duration):
+                self.send_command('CLS') # change for function to check whether CLS was successful
                 break
