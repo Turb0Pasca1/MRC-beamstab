@@ -201,12 +201,13 @@ class ProtocolDecoder:
         self.send_command('SLS', params)
 
         start_time = time.time()
-        duration = 20  
+        duration = 5  
 
+        total = []
         for chunk in self.receive_continuesly():
             print(chunk)
-
+            total.append(chunk)
             # stop after 20 seconds for continuesly measurement for now
-            if (m == 0) and (time.time() - start_time >= duration):
+            if (time.time() - start_time >= duration):
                 self.send_command('CLS') # change for function to check whether CLS was successful
                 break
