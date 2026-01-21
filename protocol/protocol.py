@@ -53,7 +53,7 @@ class ProtocolDecoder:
         '''
         while True:
             # receive arbitary amount (1024) of bytes in each chunk
-            chunk = self.receive(1014)
+            chunk = self.receive(1024)
             if not chunk:
                 raise ConnectionError('Server closed the connection')
             yield chunk
