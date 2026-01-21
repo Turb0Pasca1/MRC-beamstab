@@ -238,7 +238,8 @@ class ProtocolDecoder:
         total = []
         for chunk in self.message_stream():
             print(chunk)
-            total.append(chunk)
+            if (self.acknowledge(chunk)) and (self.reply_end(chunk)):
+                print(self.decode_response(chunk, command))
             # stop after 20 seconds for continuesly measurement for now
             if (time.time() - start_time >= duration):
                 self.send_command('CLS') # change for function to check whether CLS was successful
