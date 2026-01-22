@@ -56,7 +56,7 @@ class ProtocolDecoder:
             buffer.extend(chunk)
 
             while True:
-                
+                print(buffer)
                 # find message start marker
                 start = buffer.find(b'\x00;')
                 if start == -1:
