@@ -67,7 +67,7 @@ class ProtocolDecoder:
                 # find message end marker
                 end = buffer.find(b';', start + 3)
                 if end == -1:
-                    raise ValueError('Incomplete response')
+                    raise ValueError('Incomplete response') 
 
                 # extract full message
                 message = bytes(buffer[start:end + 1])
@@ -230,7 +230,9 @@ class ProtocolDecoder:
             n += 1
             if n == m:
                 break
+        self.send_command('CLS') # change for function to check whether CLS was successful
+
             # stop after 20 seconds for continuesly measurement for now
-            if (time.time() - start_time >= duration):
-                self.send_command('CLS') # change for function to check whether CLS was successful
-                break
+            # if (time.time() - start_time >= duration):
+            #     self.send_command('CLS') # change for function to check whether CLS was successful
+            #     break
