@@ -226,7 +226,7 @@ class ProtocolDecoder:
         n = 0
         for message in self.message_stream():
             if (self.acknowledge(message)) and (self.reply_end(message)):
-                return self.decode_response(message, command)
+                yield self.decode_response(message, command)
             n += 1
             if n == m:
                 break
