@@ -3,5 +3,8 @@ from protocol import ProtocolDecoder
 
 with TCPConnection('192.168.1.106', 2000) as conn:
     decoder = ProtocolDecoder(conn)
-    for decoded in decoder.get_SLS(3,1):
-        print(decoded)
+    #print(decoder.get_S1S())
+    #for decoded in decoder.get_SLS(5,1):
+    #    print(decoded)
+    #decoder.get_SLS(5,1)
+    decoder.debug_message_stream()

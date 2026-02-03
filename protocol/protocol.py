@@ -45,7 +45,7 @@ class ProtocolDecoder:
         '''
         return self.connection.read(size)
 
-    def message_stream(self, size=25) -> bytes:
+    def message_stream(self, size=1000) -> bytes:
         buffer = bytearray()
 
         while True:
@@ -56,18 +56,20 @@ class ProtocolDecoder:
             buffer.extend(chunk)
 
             while True:
-                print(buffer)
+                # print(buffer)
                 # find message start marker
                 start = buffer.find(b'\x00;')
                 if start == -1:
                     start = buffer.find(b'\x01;')
                     if start == -1:
-                        raise ValueError('No response start marker found')
+                        # raise ValueError('No response start marker found')
+                        print('No response start marker found yet')
                 
                 # find message end marker
                 end = buffer.find(b';', start + 3)
                 if end == -1:
-                    raise ValueError('Incomplete response') 
+                    # raise ValueError('Incomplete response') 
+                    print('Incomplete response, waiting for more data')
 
                 # extract full message
                 message = bytes(buffer[start:end + 1])
@@ -79,6 +81,17 @@ class ProtocolDecoder:
 
  
     ##### helper functions #####
+
+    # debug controller behavior
+    def plain_receive(self, size=100) -> bytes:
+        #buffer = bytearray()
+
+        while True:
+            chunk = self.receive(size)
+            if not chunk:
+                raise ConnectionError('Server closed the connection')
+            
+            yield chunk
 
     def get_formatter_str(self, fields, map=None):
         '''
@@ -226,8 +239,8 @@ class ProtocolDecoder:
         n = 0
         for message in self.message_stream():
             print(message)
-            if (self.acknowledge(message)) and (self.reply_end(message)):
-                yield self.decode_response(message, command)
+            #if (self.acknowledge(message)) and (self.reply_end(message)):
+            #    yield self.decode_response(message, command)
             n += 1
             if n == m:
                 break
@@ -237,3 +250,22 @@ class ProtocolDecoder:
             # if (time.time() - start_time >= duration):
             #     self.send_command('CLS') # change for function to check whether CLS was successful
             #     break
+
+
+    def debug_message_stream(self):
+        m = 5
+        r = 1
+        command = 'SLSmr'
+        fields = ['m', 'r']
+        fmt = self.get_formatter_str(fields, map=self.command_parameter_struct_map)
+        params = struct.pack(fmt, m, r)
+        self.send_command('SLS', params)
+        l = 0
+        for i in self.plain_receive():
+            print(i)
+            l+=len(i)
+            print(l)
+            if l >= m*25:
+                break
+        self.send_command('CLS')
+        print(l)
