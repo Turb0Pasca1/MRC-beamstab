@@ -111,70 +111,61 @@ class ProtocolDecoder:
             fmt += map[field]
         return fmt
     
-    def acknowledge(self, reply: bytes):
-        '''
-        Docstring for acknowledge
-        ToDo: change to find '0;' in encoded message to choose whether to decode or not
+    def acknowledge(self, raw_reply: bytes) -> bool:
+        """Check whether the command was correctly acknowledged by analyzing the raw response message.
 
-        interpret first two bytes of response (0;) as acknowledged message
-        reply: raw response of the controller
-        '''
-        # if (response['fe'] == 0) & (response['semi_fe'] == 59):
-        #     return True
-        # else:
-        #     return False
-
-        if b'\x00;' in reply:
+        Interpret first two bytes of response (0;) as acknowledged message.
+        Keyword arguments:
+        raw_reply -- raw response of the controller (bytes)
+        """
+        if b'\x00;' in raw_reply:
             print('Command acknowledged')
             return True
-        elif b'\x01;' in reply:
+        elif b'\x01;' in raw_reply:
             print('Error occurred')
-            # add automatic send command to get error message
             return False
         else:
-            raise ValueError('Command has not been acknowledged')
+            # there seems to be quite often the problem that the received reply is shorter than expected and
+            # is missing the acknowledgment marker
+            print('Number of bytes received as a reply:', len(raw_reply))
+            print('Received reply:', raw_reply)
+            raise ValueError('Command has not been acknowledged')        
         
-    def reply_end(self, reply: bytes):
-        '''
-        Docstring for reply_end
+    def reply_end(self, raw_reply: bytes) -> bool:
+        """Check whether the response message ended correctly on (;).
         
-        check whether the resonse message ended correctly
-        reply: raw response of the controller
-        '''
-
-        if reply[-1] == 59:
+        Keyword arguments:
+        raw_reply -- raw response of the controller (bytes)
+        """
+        if raw_reply[-1] == 59:
             return True
         else:
             raise ValueError('Response did not end on ;')
 
 
     # decode response of a sent command    
-    def decode_response(self, reply: bytes, command: str):
-        '''
-        Docstring of decode_response
+    def decode_response(self, reply: bytes, command: str) -> dict:
+        """Decode controller response message corresponding to a sent command.
 
-        decodes command response corresponding to COMMAND_RESPONSE_MAP
-        reply: reply message of a send command by the controller
-        command: command string that caused the return
-        return dict of command return keys and values
-        '''
+        Decodes command response corresponding to COMMAND_RESPONSE_MAP
+        Keyword arguments:
+        reply   -- reply message of a send command by the controller (bytes)
+        command -- command string that caused the return (str)
+        return  -- dict of decoded response fields and values
+        """
         # check command validity
         if command not in self.command_response_map:
             raise ValueError(f'Unknown command {command}')
-    
+        # extracts expected fields for the command
         fields = self.command_response_map[command]
-    
+        # build struct formatter string for unpacking the response
         fmt = self.get_formatter_str(fields)
-
         # check reply length with expected length
-        # add to re-send the command
         if struct.calcsize(fmt) != len(reply):
             raise ValueError(f'Length of reply {len(reply)} byte does not match length of expected "{command}" length of {struct.calcsize(fmt)} byte.')
-          
         # unpack
         unpacked = struct.unpack(fmt, reply)
         response = dict(zip(fields, unpacked))
-    
         # handle special cases of keys
         for key, val in response.items():
             # StatusFlag: convert to bit dictionary
@@ -182,7 +173,6 @@ class ProtocolDecoder:
                 bits = format(val, '08b')
                 response['StatusFlag'] = dict(zip(self.command_response_map.get('StatusFlag', []), bits))
                 continue
-    
             # decode fields received as ascii
             if key in self.ascii_keys:
                 if isinstance(val, (bytes, bytearray)):
@@ -190,13 +180,11 @@ class ProtocolDecoder:
                 elif isinstance(val, int) and 0 <= val <= 127:
                     response[key] = chr(val)
                 continue
-    
             # map error code
             if key == 'e':
                 code = val
                 if isinstance(code, (bytes, bytearray)) and len(code) == 1:
                     code = code[0]
-    
                 error_name = self.error_code_map.get(code, f'UnknownError_0x{code:02X}')
                 error_description = self.error_description_map.get(code, 'No description available.')
     
@@ -206,16 +194,40 @@ class ProtocolDecoder:
                     'ErrorDescription': error_description
                 }
                 continue
-    
         return response
     
+    ##### functions of MRC-communication protocol #####
+
     def get_S1S(self):
+        """Start One Shot
+
+        Send the S1S command to the controller to get a single measurement of the current state of the device
+        and return the decoded response as a dictionary.
+        return dict of
+            StatusFlag,
+            Res. Byte,
+            DX1, DY1, DI1,
+            DX2, DY2, DI2,
+            RX1, RY1,
+            RX2, RY2
+        """
         command = 'S1S'
         self.send_command(command)
         fields = self.command_response_map[command]
         fmt = self.get_formatter_str(fields)
         length = struct.calcsize(fmt)
         raw_reply = self.receive(length)
+        if (self.acknowledge(raw_reply)) and (self.reply_end(raw_reply)):
+            return self.decode_response(raw_reply, command) 
+        
+    def get_error(self):
+        command = 'GER'
+        self.send_command(command)
+        fields = self.command_response_map[command]
+        fmt = self.get_formatter_str(fields)
+        length = struct.calcsize(fmt)
+        raw_reply = self.receive(length)
+        print(raw_reply)
         if (self.acknowledge(raw_reply)) and (self.reply_end(raw_reply)):
             return self.decode_response(raw_reply, command) 
     
