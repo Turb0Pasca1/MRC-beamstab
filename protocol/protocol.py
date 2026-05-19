@@ -1,6 +1,12 @@
 # protocol/protocol.py
 
-from .defs import *
+from .defs import (
+    COMMAND_PARAMETER_STRUCT_MAP,
+    COMMAND_RESPONSE_MAP,
+    RETURN_VALUE_STRUCT_MAP,
+    ASCII_KEYS,ERROR_CODE_MAP,
+    ERROR_DESCRIPTION_MAP
+)
 import struct
 import time
 
@@ -21,8 +27,8 @@ class ProtocolDecoder:
         Docstring for send_command
 
         sends command to the device
-        command: command to send of dytpe str
-        params: parameter to send with the command of dytpe byte
+        command: command to send of dtype str
+        params: parameter to send with the command of dtype byte
         '''
         if params is None:
             params = b''
@@ -44,6 +50,27 @@ class ProtocolDecoder:
         receives data of size size
         '''
         return self.connection.read(size)
+    
+    def plain_receive(self, size=100):
+        '''
+        Docstring for plain_receive
+
+        listens to TCP data stream and yields the received bytes to be worked with
+        '''
+        while True:
+            chunk = self.receive(size)
+            if not chunk:
+                raise ConnectionError('Server closed the connection')
+            
+            yield chunk
+
+    def message_single(self, length):
+        buffer = bytearray()
+        for chunk in self.plain_receive():
+            buffer.extend(chunk)
+            if len(buffer) >= length:
+                break
+        return bytes(buffer[:length])
 
     def message_stream(self, size=1000) -> bytes:
         buffer = bytearray()
@@ -82,16 +109,8 @@ class ProtocolDecoder:
  
     ##### helper functions #####
 
-    # debug controller behavior
-    def plain_receive(self, size=100) -> bytes:
-        #buffer = bytearray()
-
-        while True:
-            chunk = self.receive(size)
-            if not chunk:
-                raise ConnectionError('Server closed the connection')
-            
-            yield chunk
+   
+    
 
     def get_formatter_str(self, fields, map=None):
         '''
@@ -216,7 +235,7 @@ class ProtocolDecoder:
         fields = self.command_response_map[command]
         fmt = self.get_formatter_str(fields)
         length = struct.calcsize(fmt)
-        raw_reply = self.receive(length)
+        raw_reply = self.message_single(length)
         if (self.acknowledge(raw_reply)) and (self.reply_end(raw_reply)):
             return self.decode_response(raw_reply, command) 
         
@@ -265,19 +284,17 @@ class ProtocolDecoder:
 
 
     def debug_message_stream(self):
-        m = 5
-        r = 1
+        m = 1
+        r = 500
         command = 'SLSmr'
         fields = ['m', 'r']
         fmt = self.get_formatter_str(fields, map=self.command_parameter_struct_map)
         params = struct.pack(fmt, m, r)
         self.send_command('SLS', params)
-        l = 0
-        for i in self.plain_receive():
-            print(i)
-            l+=len(i)
-            print(l)
-            if l >= m*25:
+        #getting_chunks = self.plain_receive()
+        buffer = bytearray()
+        for chunk in self.plain_receive():
+            buffer.extend(chunk)
+            if len(buffer) >= 25:
                 break
-        self.send_command('CLS')
-        print(l)
+        return self.decode_response(bytes(buffer[:25]), command)
