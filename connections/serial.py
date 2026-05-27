@@ -37,7 +37,9 @@ class SerialConnection(BaseConnection):
         )
 
     def close(self):
-        """Closes the serial connection if it is open."""
+        """
+        Closes the serial connection if it is open.
+        """
         if self.connection and self.connection.is_open:
             self.connection.close()
             self.connection = None
