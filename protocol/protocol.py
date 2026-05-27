@@ -53,7 +53,7 @@ class ProtocolDecoder:
         """
         return self.connection.read(size)
     
-    def receive(self, size: int) -> bytes:
+    def receive(self, size: int):
         """Reads from connection
 
         Wrapper function of self.read() to handle serial and tcp/ip connection protocols
@@ -76,21 +76,25 @@ class ProtocolDecoder:
             
             yield chunk
 
-    # for testing
-    def message_single(self, length):
+    def read_once(self, length: int) -> bytes:
+        """Unpack chunks received by self.receive()
+
+        :param size: Expected lenth of received response
+        """
         buffer = bytearray()
-        for chunk in self.plain_receive():
+        for chunk in self.receive(length):
             buffer.extend(chunk)
+            # reads from generator function self.receive() until the expected length of the response is reached
             if len(buffer) >= length:
                 break
         return bytes(buffer[:length])
 
-    # for testing
-    def message_stream(self, size=1000):
+    # to be worked on
+    def read_continuesly(self, length: int):
         buffer = bytearray()
 
         while True:
-            chunk = self.receive(size)
+            chunk = self.receive(length)
             if not chunk:
                 raise ConnectionError('Server closed the connection')
 
@@ -223,6 +227,22 @@ class ProtocolDecoder:
         return response
     
     # ========== MRC-beamstab native commands ========== # 
+    def debug_message_stream(self):
+        m = 1
+        r = 500
+        command = 'SLSmr'
+        fields = ['m', 'r']
+        fmt = self.get_formatter_str(fields, map=self.command_parameter_struct_map)
+        params = struct.pack(fmt, m, r)
+        self.send_command('SLS', params)
+        #getting_chunks = self.plain_receive()
+        buffer = bytearray()
+        for chunk in self.plain_receive():
+            buffer.extend(chunk)
+            if len(buffer) >= 25:
+                break
+        self.send_command('CLS')
+
     def get_S1S(self):
         """Start One Shot
 
@@ -241,7 +261,7 @@ class ProtocolDecoder:
         fields = self.command_response_map[command]
         fmt = self.get_formatter_str(fields)
         length = struct.calcsize(fmt)
-        raw_reply = self.message_single(length)
+        raw_reply = self.read_once(length)
         if (self.acknowledge(raw_reply)) and (self.reply_end(raw_reply)):
             return self.decode_response(raw_reply, command) 
         
@@ -260,17 +280,17 @@ class ProtocolDecoder:
         fields = self.command_response_map[command]
         fmt = self.get_formatter_str(fields)
         length = struct.calcsize(fmt)
-        raw_reply = self.receive(length)
+        raw_reply = self.read_once(length)
         if (self.acknowledge(raw_reply)) and (self.reply_end(raw_reply)):
             return self.decode_response(raw_reply, command)
 
-    def get_error(self):
+    def get_GER(self):
         command = 'GER'
         self.send_command(command)
         fields = self.command_response_map[command]
         fmt = self.get_formatter_str(fields)
         length = struct.calcsize(fmt)
-        raw_reply = self.receive(length)
+        raw_reply = self.read_once(length)
         print(raw_reply)
         if (self.acknowledge(raw_reply)) and (self.reply_end(raw_reply)):
             return self.decode_response(raw_reply, command) 
@@ -419,23 +439,6 @@ class ProtocolDecoder:
 
         if self.acknowledge(raw_reply) and self.reply_end(raw_reply):
             return self.decode_response(raw_reply, command)
-
-    def debug_message_stream(self):
-        m = 1
-        r = 500
-        command = 'SLSmr'
-        fields = ['m', 'r']
-        fmt = self.get_formatter_str(fields, map=self.command_parameter_struct_map)
-        params = struct.pack(fmt, m, r)
-        self.send_command('SLS', params)
-        #getting_chunks = self.plain_receive()
-        buffer = bytearray()
-        for chunk in self.plain_receive():
-            buffer.extend(chunk)
-            if len(buffer) >= 25:
-                break
-        self.send_command('CLS')
-        
 
     def set_p_factor(self, stage: int, p: int) -> dict:
         """Set the P-factor of the control loop via SPFsp.
