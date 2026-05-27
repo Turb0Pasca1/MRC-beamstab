@@ -72,7 +72,7 @@ class ProtocolDecoder:
                 break
         return bytes(buffer[:length])
 
-    def message_stream(self, size=1000) -> bytes:
+    def message_stream(self, size=1000):
         buffer = bytearray()
 
         while True:
@@ -138,7 +138,7 @@ class ProtocolDecoder:
         raw_reply -- raw response of the controller (bytes)
         """
         if b'\x00;' in raw_reply:
-            print('Command acknowledged')
+            #print('Command acknowledged')
             return True
         elif b'\x01;' in raw_reply:
             print('Error occurred')
@@ -239,6 +239,25 @@ class ProtocolDecoder:
         if (self.acknowledge(raw_reply)) and (self.reply_end(raw_reply)):
             return self.decode_response(raw_reply, command) 
         
+    def get_GDA(self):
+        """Get Drive Actuator values.
+
+        Send the GDA command to the controller to read the current piezo
+        actuator drive voltages for all axes and return the decoded response.
+
+        return dict of
+            dx1, dy1  -- Stage-1 actuator drive values (-5000mV – +5000mV)
+            dx2, dy2  -- Stage-2 actuator drive values (-5000mV – +5000mV)
+        """
+        command = 'GDA'
+        self.send_command(command)
+        fields = self.command_response_map[command]
+        fmt = self.get_formatter_str(fields)
+        length = struct.calcsize(fmt)
+        raw_reply = self.receive(length)
+        if (self.acknowledge(raw_reply)) and (self.reply_end(raw_reply)):
+            return self.decode_response(raw_reply, command)
+
     def get_error(self):
         command = 'GER'
         self.send_command(command)
@@ -282,6 +301,118 @@ class ProtocolDecoder:
             #     self.send_command('CLS') # change for function to check whether CLS was successful
             #     break
 
+    ##### Stage 2 reference positioning and stabilization #####
+
+    def set_reference_position(self, offset_x: int, offset_y: int, stage: int = 2) -> dict:
+        """Set a reference target position on the detector for stage 2 by applying
+        X and Y offsets via the SAIsao command.
+
+        The offset shifts the closed-loop stabilization target away from the detector
+        centre (0mV). Positive and negative values are both valid.
+
+        Parameters
+        ----------
+        offset_x : int
+            Target offset on the x-axis in mV (-5000 – +5000).
+        offset_y : int
+            Target offset on the y-axis in mV (-5000 – +5000).
+        stage : int
+            Stage number (default 2). Must be 1 or 2; 3 is only valid for
+            trigger commands and is therefore rejected here.
+
+        Returns
+        -------
+        dict
+            {'x': decoded SAIsao response, 'y': decoded SAIsao response}
+
+        Raises
+        ------
+        ValueError
+            If stage is not 1 or 2, or if offsets are outside ±5000 mV.
+        """
+        if stage not in (1, 2):
+            raise ValueError(f'stage must be 1 or 2, got {stage}')
+        if not (-5000 <= offset_x <= 5000):
+            raise ValueError(f'offset_x must be between -5000 and +5000 mV, got {offset_x}')
+        if not (-5000 <= offset_y <= 5000):
+            raise ValueError(f'offset_y must be between -5000 and +5000 mV, got {offset_y}')
+
+        results = {}
+        for axis_char, offset in (('x', offset_x), ('y', offset_y)):
+            axis_key = 'x'  # label for result dict
+
+            command = 'SAIsao'
+            param_fields = ['s', 'a', 'o']
+            fmt = self.get_formatter_str(param_fields, map=self.command_parameter_struct_map)
+
+            # axis encoded as ASCII byte value: x = 0x78, y = 0x79
+            axis_byte = ord(axis_char)
+            params = struct.pack(fmt, stage, axis_byte, offset)
+            self.send_command('SAI', params)
+
+            response_fields = self.command_response_map[command]
+            response_fmt    = self.get_formatter_str(response_fields)
+            length          = struct.calcsize(response_fmt)
+            raw_reply       = self.receive(length)
+
+            if self.acknowledge(raw_reply) and self.reply_end(raw_reply):
+                results[axis_char] = self.decode_response(raw_reply, command)
+
+        return results
+
+    def enable_stabilization(self, stage: int = 2) -> dict:
+        """Enable closed-loop stabilization on the given stage via SEAs.
+
+        Parameters
+        ----------
+        stage : int
+            Stage number to enable (default 2).
+
+        Returns
+        -------
+        dict
+            Decoded SEAs response.
+        """
+        command = 'SEAs'
+        param_fields = ['s']
+        fmt    = self.get_formatter_str(param_fields, map=self.command_parameter_struct_map)
+        params = struct.pack(fmt, stage)
+        self.send_command('SEA', params)
+
+        response_fields = self.command_response_map[command]
+        response_fmt    = self.get_formatter_str(response_fields)
+        length          = struct.calcsize(response_fmt)
+        raw_reply       = self.receive(length)
+
+        if self.acknowledge(raw_reply) and self.reply_end(raw_reply):
+            return self.decode_response(raw_reply, command)
+
+    def disable_stabilization(self, stage: int = 2) -> dict:
+        """Disable closed-loop stabilization on the given stage via CEAs.
+
+        Parameters
+        ----------
+        stage : int
+            Stage number to disable (default 2).
+
+        Returns
+        -------
+        dict
+            Decoded CEAs response.
+        """
+        command = 'CEAs'
+        param_fields = ['s']
+        fmt    = self.get_formatter_str(param_fields, map=self.command_parameter_struct_map)
+        params = struct.pack(fmt, stage)
+        self.send_command('CEA', params)
+
+        response_fields = self.command_response_map[command]
+        response_fmt    = self.get_formatter_str(response_fields)
+        length          = struct.calcsize(response_fmt)
+        raw_reply       = self.receive(length)
+
+        if self.acknowledge(raw_reply) and self.reply_end(raw_reply):
+            return self.decode_response(raw_reply, command)
 
     def debug_message_stream(self):
         m = 1
@@ -297,4 +428,79 @@ class ProtocolDecoder:
             buffer.extend(chunk)
             if len(buffer) >= 25:
                 break
-        return self.decode_response(bytes(buffer[:25]), command)
+        self.send_command('CLS')
+        
+
+    def set_p_factor(self, stage: int, p: int) -> dict:
+        """Set the P-factor of the control loop via SPFsp.
+
+        Parameters
+        ----------
+        stage : int
+            Stage number to set P-factor for (1 or 2).
+        p : int
+            P-factor value in mV (0 - 5000).
+
+        Returns
+        -------
+        dict
+            Decoded SPFsp response.
+
+        Raises
+        ------
+        ValueError
+            If stage is not 1 or 2, or if p is outside 0 - 5000 mV.
+        """
+        if stage not in (1, 2):
+            raise ValueError(f'stage must be 1 or 2, got {stage}')
+        if not (0 <= p <= 5000):
+            raise ValueError(f'p must be between 0 and 5000 mV, got {p}')
+
+        command = 'SPFsp'
+        param_fields = ['s', 'p']
+        fmt    = self.get_formatter_str(param_fields, map=self.command_parameter_struct_map)
+        params = struct.pack(fmt, stage, p)
+        self.send_command('SPF', params)
+
+        response_fields = self.command_response_map[command]
+        response_fmt    = self.get_formatter_str(response_fields)
+        length          = struct.calcsize(response_fmt)
+        raw_reply       = self.receive(length)
+
+        if self.acknowledge(raw_reply) and self.reply_end(raw_reply):
+            return self.decode_response(raw_reply, command)
+
+    def get_p_factor(self, stage: int) -> dict:
+        """Read the current P-factor of the control loop via GPFs.
+
+        Parameters
+        ----------
+        stage : int
+            Stage number to query (1 or 2).
+
+        Returns
+        -------
+        dict
+            Decoded GPFs response, including 'p' (0 - 5000 mV).
+
+        Raises
+        ------
+        ValueError
+            If stage is not 1 or 2.
+        """
+        if stage not in (1, 2):
+            raise ValueError(f'stage must be 1 or 2, got {stage}')
+
+        command = 'GPFs'
+        param_fields = ['s']
+        fmt    = self.get_formatter_str(param_fields, map=self.command_parameter_struct_map)
+        params = struct.pack(fmt, stage)
+        self.send_command('GPF', params)
+
+        response_fields = self.command_response_map[command]
+        response_fmt    = self.get_formatter_str(response_fields)
+        length          = struct.calcsize(response_fmt)
+        raw_reply       = self.receive(length)
+
+        if self.acknowledge(raw_reply) and self.reply_end(raw_reply):
+            return self.decode_response(raw_reply, command)

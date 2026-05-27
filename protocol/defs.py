@@ -131,10 +131,6 @@ COMMAND_RESPONSE_MAP = {
         'o',
         'semi_end'      # semicolon (ascii value 59 (0x3b))
     ],
-    'GPFs': [
-        'fe',           # error acknowledge: no error (0), error (1)
-        'semi_fe'       # semicolon (ascii value 59 (0x3b))
-    ],
     'SDAsad': [
         'fe',           # error acknowledge: no error (0), error (1)
         'semi_fe'       # semicolon (ascii value 59 (0x3b))
