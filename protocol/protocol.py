@@ -243,7 +243,7 @@ class ProtocolDecoder:
                 break
         self.send_command('CLS')
 
-    def get_S1S(self):
+    def start_one_shot(self):
         """Start One Shot
 
         Send the S1S command to the controller to get a single measurement of the current state of the device
@@ -265,7 +265,7 @@ class ProtocolDecoder:
         if (self.acknowledge(raw_reply)) and (self.reply_end(raw_reply)):
             return self.decode_response(raw_reply, command) 
         
-    def get_GDA(self):
+    def get_drive_actuator(self):
         """Get Drive Actuator values.
 
         Send the GDA command to the controller to read the current piezo
@@ -284,7 +284,7 @@ class ProtocolDecoder:
         if (self.acknowledge(raw_reply)) and (self.reply_end(raw_reply)):
             return self.decode_response(raw_reply, command)
 
-    def get_GER(self):
+    def get_error(self):
         command = 'GER'
         self.send_command(command)
         fields = self.command_response_map[command]
@@ -295,7 +295,8 @@ class ProtocolDecoder:
         if (self.acknowledge(raw_reply)) and (self.reply_end(raw_reply)):
             return self.decode_response(raw_reply, command) 
     
-    def get_SLS(self, m, r):
+    # to be worked on
+    def start_live_stream(self, m, r):
         '''
         m: number of transmitted data measurement blocks
            0: continues measurement
