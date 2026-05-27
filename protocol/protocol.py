@@ -22,48 +22,61 @@ class ProtocolDecoder:
     def __init__(self, connection):
         self.connection = connection
 
+    # ========== communication ========== #
     def send_command(self, command: str, params=None):
-        '''
-        Docstring for send_command
+        """Sends uppercase ASCII command names and binary-coded parameters
 
-        sends command to the device
-        command: command to send of dtype str
-        params: parameter to send with the command of dtype byte
-        '''
+        Wrapper function of connection.write() 
+        
+        :param command: str of the command to send
+        :param params: parameter to send with the command of dtype byte
+        """
         if params is None:
             params = b''
         if not isinstance(command, str):
             raise TypeError('Command must be of dtype str')
         if not isinstance(params, (bytes, bytearray)):
             raise TypeError('Params must be of dtype bytes')
-        block = (
+        chunk = (
             command.encode('ascii') +
             params +
             b';'
         )
-        self.connection.write(block)
+        self.connection.write(chunk)
 
-    def receive(self, size: int) -> bytes:
-        '''
-        Docstring for receive
-        
-        receives data of size size
-        '''
+    def read(self, size: int) -> bytes:
+        """Reads specified number of bytes from connection
+
+        Wrapper function of connection.read()
+
+        :param size: Number of bytes to read from the connection protocol
+        """
         return self.connection.read(size)
     
-    def plain_receive(self, size=100):
-        '''
-        Docstring for plain_receive
+    def receive(self, size: int) -> bytes:
+        """Reads from connection
 
-        listens to TCP data stream and yields the received bytes to be worked with
-        '''
+        Wrapper function of self.read() to handle serial and tcp/ip connection protocols
+
+        :param size: Number of bytes to read from the connection protocol in each chunk
+        """
         while True:
-            chunk = self.receive(size)
+            chunk = self.read(size)
             if not chunk:
-                raise ConnectionError('Server closed the connection')
+                # serial connection lost
+                if hasattr(self.connection, 'is_open') and not self.connection.is_open:
+                    raise ConnectionError('Serial connection lost')
+            
+                # serial connection timeout
+                if hasattr(self.connection, 'is_open'):
+                    continue
+                
+                # tcp/ip connection closed
+                raise ConnectionError('Server closed the tcp/ip connection')
             
             yield chunk
 
+    # for testing
     def message_single(self, length):
         buffer = bytearray()
         for chunk in self.plain_receive():
@@ -72,6 +85,7 @@ class ProtocolDecoder:
                 break
         return bytes(buffer[:length])
 
+    # for testing
     def message_stream(self, size=1000):
         buffer = bytearray()
 
@@ -105,28 +119,21 @@ class ProtocolDecoder:
                 del buffer[:end + 1]
 
                 yield message
-
  
-    ##### helper functions #####
+    # ========== cross checks ========== #
+    def get_formatter_str(self, fields: str, map=None) -> str:
+        """Builder for struct formatter string to pack and unpack bytes
 
-   
-    
-
-    def get_formatter_str(self, fields, map=None):
-        '''
-        Docstring for get_fromatter_str
-
-        builder for struct formatter string to pack and unpack bytes
-        fields: fields of defs.py containing the dytpe information of parameters to send and attributes to receive
-        map:    dict to map the fields onto
-        '''
+        :param fields: fields of defs.py containing the dtype information of parameters to send and attributes to receive
+        :param map: dict to map the fields onto e.g. COMMAND_PARAMETER_STRUCT_MAP or RETURN_VALUE_STRUCT_MAP
+        """
         if map is None:
             map = self.return_value_struct_map
         # high byte first
         fmt = '>'  
         for field in fields:
             if field not in map:
-                raise ValueError(f'Field {field} not in return_value_struct_map')
+                raise ValueError(f'Field {field} not in return_value_struct_map or specified map')
             fmt += map[field]
         return fmt
     
@@ -134,8 +141,8 @@ class ProtocolDecoder:
         """Check whether the command was correctly acknowledged by analyzing the raw response message.
 
         Interpret first two bytes of response (0;) as acknowledged message.
-        Keyword arguments:
-        raw_reply -- raw response of the controller (bytes)
+        
+        :param raw_reply: raw response of the controller in bytes
         """
         if b'\x00;' in raw_reply:
             #print('Command acknowledged')
@@ -146,6 +153,7 @@ class ProtocolDecoder:
         else:
             # there seems to be quite often the problem that the received reply is shorter than expected and
             # is missing the acknowledgment marker
+            # might have been an issue of unproperly handling tcp/ip connections
             print('Number of bytes received as a reply:', len(raw_reply))
             print('Received reply:', raw_reply)
             raise ValueError('Command has not been acknowledged')        
@@ -153,24 +161,23 @@ class ProtocolDecoder:
     def reply_end(self, raw_reply: bytes) -> bool:
         """Check whether the response message ended correctly on (;).
         
-        Keyword arguments:
-        raw_reply -- raw response of the controller (bytes)
+        :param raw_reply: raw response of the controller in bytes
         """
         if raw_reply[-1] == 59:
             return True
         else:
             raise ValueError('Response did not end on ;')
 
-
-    # decode response of a sent command    
+    # ========== decoding ========== #  
     def decode_response(self, reply: bytes, command: str) -> dict:
         """Decode controller response message corresponding to a sent command.
 
         Decodes command response corresponding to COMMAND_RESPONSE_MAP
-        Keyword arguments:
-        reply   -- reply message of a send command by the controller (bytes)
-        command -- command string that caused the return (str)
-        return  -- dict of decoded response fields and values
+        
+        :param reply: response message of a sent command by the controller in bytes
+        :param command: command string that caused the return (str)
+
+        return: dict of decoded response fields and values
         """
         # check command validity
         if command not in self.command_response_map:
@@ -215,8 +222,7 @@ class ProtocolDecoder:
                 continue
         return response
     
-    ##### functions of MRC-communication protocol #####
-
+    # ========== MRC-beamstab native commands ========== # 
     def get_S1S(self):
         """Start One Shot
 
