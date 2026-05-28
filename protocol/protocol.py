@@ -91,38 +91,34 @@ class ProtocolDecoder:
 
     # to be worked on
     def read_continuesly(self, length: int):
+        
         buffer = bytearray()
-
         while True:
-            chunk = self.receive(length)
-            if not chunk:
-                raise ConnectionError('Server closed the connection')
-
+            chunk = self.read_once(length)
             buffer.extend(chunk)
 
-            while True:
-                # print(buffer)
-                # find message start marker
-                start = buffer.find(b'\x00;')
+            print(buffer)
+            # find message start marker
+            start = buffer.find(b'\x00;')
+            if start == -1:
+                start = buffer.find(b'\x01;')
                 if start == -1:
-                    start = buffer.find(b'\x01;')
-                    if start == -1:
-                        # raise ValueError('No response start marker found')
-                        print('No response start marker found yet')
-                
-                # find message end marker
-                end = buffer.find(b';', start + 3)
-                if end == -1:
-                    # raise ValueError('Incomplete response') 
-                    print('Incomplete response, waiting for more data')
+                    # raise ValueError('No response start marker found')
+                    print('No response start marker found yet')
+            
+            # find message end marker
+            end = buffer.find(b';', start + 3)
+            if end == -1:
+                # raise ValueError('Incomplete response') 
+                print('Incomplete response, waiting for more data')
 
-                # extract full message
-                message = bytes(buffer[start:end + 1])
+            # extract full message
+            message = bytes(buffer[start:end + 1])
 
-                # remove processed bytes from buffer
-                del buffer[:end + 1]
+            # remove processed bytes from buffer
+            del buffer[:end + 1]
 
-                yield message
+            yield message
  
     # ========== cross checks ========== #
     def get_formatter_str(self, fields: str, map=None) -> str:
@@ -246,15 +242,18 @@ class ProtocolDecoder:
     def start_one_shot(self):
         """Start One Shot
 
-        Send the S1S command to the controller to get a single measurement of the current state of the device
-        and return the decoded response as a dictionary.
+        Send the S1S command to the controller to get a single measurement of 
+        the current state of the device.
+
         return dict of
             StatusFlag,
             Res. Byte,
-            DX1, DY1, DI1,
-            DX2, DY2, DI2,
-            RX1, RY1,
-            RX2, RY2
+            DX1, DY1,   -- Stage-1 actuator drive values (-5000mV - +5000mV)
+            DI1,        -- Detector1, intensity (0 - 8000mV)
+            DX2, DY2,   -- Stage-2 actuator drive values (-5000mV - +5000mV)
+            DI2,        -- Detector2, intensity (0 - 8000mV)
+            RX1, RY1,   -- Piezo range of stage1 (0 - 10000mV)
+            RX2, RY2    -- Piezo range of stage2 (0 - 10000mV)
         """
         command = 'S1S'
         self.send_command(command)
@@ -265,6 +264,60 @@ class ProtocolDecoder:
         if (self.acknowledge(raw_reply)) and (self.reply_end(raw_reply)):
             return self.decode_response(raw_reply, command) 
         
+    # to be worked on
+    def start_live_stream(self, m, r):
+        """Start Live Stream
+
+        Send the SLS[mr] command to the controller to get a continues measurement of 
+        the current state of the device.
+
+        :param m: number of transmitted data measurement blocks
+                  0: continues measurement
+                  1 <= m <= 65500
+        :param r: time interval 
+                  1 <= r <= 500 samples/s
+        
+        stream dict of
+            Res. Byte,
+            DX1, DY1,   -- Stage-1 actuator drive values (-5000mV - +5000mV)
+            DI1,        -- Detector1, intensity (0 - 8000mV)
+            DX2, DY2,   -- Stage-2 actuator drive values (-5000mV - +5000mV)
+            DI2,        -- Detector2, intensity (0 - 8000mV)
+            RX1, RY1,   -- Piezo range of stage1 (0 - 10000mV)
+            RX2, RY2    -- Piezo range of stage2 (0 - 10000mV)
+        """
+        command = 'SLSmr'
+        fields = ['m', 'r']
+        fmt = self.get_formatter_str(fields, map=self.command_parameter_struct_map)
+        length = struct.calcsize(fmt)
+        params = struct.pack(fmt, m, r)
+        self.send_command('SLS', params)  
+
+        for message in self.read_continuesly(length):
+            print(message)
+            if (self.acknowledge(message)) and (self.reply_end(message)):
+                decoded = self.decode_response(message, command)
+                print(decoded)
+                yield decoded
+            
+    def clear_live_stream(self):
+        
+        command = 'CLS'
+        self.send_command(command)
+        #fields = self.command_response_map[command]
+        #fmt = self.get_formatter_str(fields)
+        length = 1000
+        
+        #raw_reply = self.read_once(length)
+        #print(raw_reply)
+        #if (self.acknowledge(raw_reply)) and (self.reply_end(raw_reply)):
+        #    return self.decode_response(raw_reply, command)
+        
+
+
+
+    ##### Stage 2 reference positioning and stabilization #####
+        
     def get_drive_actuator(self):
         """Get Drive Actuator values.
 
@@ -272,8 +325,8 @@ class ProtocolDecoder:
         actuator drive voltages for all axes and return the decoded response.
 
         return dict of
-            dx1, dy1  -- Stage-1 actuator drive values (-5000mV – +5000mV)
-            dx2, dy2  -- Stage-2 actuator drive values (-5000mV – +5000mV)
+            dx1, dy1  -- Stage-1 actuator drive values (-5000mV - +5000mV)
+            dx2, dy2  -- Stage-2 actuator drive values (-5000mV - +5000mV)
         """
         command = 'GDA'
         self.send_command(command)
@@ -285,6 +338,14 @@ class ProtocolDecoder:
             return self.decode_response(raw_reply, command)
 
     def get_error(self):
+        """Get Error Code
+        
+        Send the GER command to the controller to read the last occured error code.
+
+        return list of
+            ErrorName        -- Error Name
+            ErrorDescription -- Error Description
+        """
         command = 'GER'
         self.send_command(command)
         fields = self.command_response_map[command]
@@ -293,42 +354,11 @@ class ProtocolDecoder:
         raw_reply = self.read_once(length)
         print(raw_reply)
         if (self.acknowledge(raw_reply)) and (self.reply_end(raw_reply)):
-            return self.decode_response(raw_reply, command) 
+            decoded = self.decode_response(raw_reply, command)
+            print(decoded)
+            return [decoded['e']['ErrorName'], decoded['e']['ErrorDescription']]
     
-    # to be worked on
-    def start_live_stream(self, m, r):
-        '''
-        m: number of transmitted data measurement blocks
-           0: continues measurement
-           1 <= m <= 65500
-        r: time interval 
-           1 <= r <= 500 samples/s
-        '''
-        command = 'SLSmr'
-        fields = ['m', 'r']
-        fmt = self.get_formatter_str(fields, map=self.command_parameter_struct_map)
-        params = struct.pack(fmt, m, r)
-        self.send_command('SLS', params)
-
-        start_time = time.time()
-        duration = 5  
-
-        n = 0
-        for message in self.message_stream():
-            print(message)
-            #if (self.acknowledge(message)) and (self.reply_end(message)):
-            #    yield self.decode_response(message, command)
-            n += 1
-            if n == m:
-                break
-        self.send_command('CLS') # change for function to check whether CLS was successful
-
-            # stop after 20 seconds for continuesly measurement for now
-            # if (time.time() - start_time >= duration):
-            #     self.send_command('CLS') # change for function to check whether CLS was successful
-            #     break
-
-    ##### Stage 2 reference positioning and stabilization #####
+    
 
     def set_reference_position(self, offset_x: int, offset_y: int, stage: int = 2) -> dict:
         """Set a reference target position on the detector for stage 2 by applying
